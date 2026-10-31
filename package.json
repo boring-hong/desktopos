@@ -1,15 +1,26 @@
 {
   "name": "desktopos",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "DesktopOS — AI-to-Windows Bridge: persistent PowerShell session, dual-channel perception, element-level UI automation, CDP browser channel, self-healing",
   "license": "MIT",
   "engines": {
     "node": ">=22"
   },
-  "os": ["win32"],
-  "keywords": ["mcp", "windows", "powershell", "ui-automation", "cdp", "desktop", "agent"],
+  "os": [
+    "win32"
+  ],
+  "keywords": [
+    "mcp",
+    "windows",
+    "powershell",
+    "ui-automation",
+    "cdp",
+    "desktop",
+    "agent"
+  ],
   "files": [
     "src",
+    "scripts",
     "docs",
     "examples",
     "README.md",
@@ -18,14 +29,16 @@
   "scripts": {
     "start": "node src/mcp-server/index.js",
     "dev": "node --watch src/mcp-server/index.js",
-    "test": "node test/ascii-guard.test.js && node test/shell-worker.test.js && node test/resilience.test.js && node test/perception.test.js && node test/actor.test.js && node test/diagnoser.test.js && node test/memory.test.js && node test/mcp-e2e.test.js",
-    "test:unit": "node test/ascii-guard.test.js && node test/shell-worker.test.js && node test/resilience.test.js",
+    "test": "node test/ascii-guard.test.js && node test/shell-worker.test.js && node test/resilience.test.js && node test/perception.test.js && node test/actor.test.js && node test/diagnoser.test.js && node test/memory.test.js && node test/toolfilter.test.js && node test/mcp-e2e.test.js",
+    "test:unit": "node test/ascii-guard.test.js && node test/shell-worker.test.js && node test/resilience.test.js && node test/toolfilter.test.js",
     "test:resilience": "node test/resilience.test.js",
+    "test:toolfilter": "node test/toolfilter.test.js",
     "test:perception": "node test/perception.test.js",
     "test:actor": "node test/actor.test.js",
     "test:diagnoser": "node test/diagnoser.test.js",
     "test:memory": "node test/memory.test.js",
     "test:e2e": "node test/mcp-e2e.test.js",
+    "audit:overlap": "node scripts/overlap-audit.js",
     "dbg:cdp": "node test/_dbg-cdp.js"
   },
   "dependencies": {

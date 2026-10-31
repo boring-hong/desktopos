@@ -115,6 +115,71 @@ shell_exec_verified
 
 ---
 
+## 按需裁剪工具面（多服务器共存时用）
+
+**问题不在工具多，在于重叠没人裁决。**
+
+主流 MCP 客户端（DSH / Claude Desktop / Cursor）只支持按**服务器**启停，
+没有工具级开关。于是机器上同时装了另一个桌面自动化、一个浏览器自动化之后，
+这个服务器暴露的 33 个工具里有相当一部分是在问同一个问题：
+「点这个控件」有两条路，「截个图」有三条路。模型每次调用都得猜，
+而猜错的概率随重叠面积上升 —— 这是装多了之后真实会出现的退化。
+
+客户端修不了，就在服务器侧修：**启动时把重叠的那部分裁掉，决策点直接消失**。
+
+```bash
+# 按分组
+DESKTOPOS_TOOLS=shell,diagnose node src/mcp-server/index.js
+
+# 按工具名，可混写
+DESKTOPOS_TOOLS=shell_exec,shell_cd,desktop_perceive node src/mcp-server/index.js
+
+# 或者排除法（exclude 优先）
+DESKTOPOS_TOOLS=shell,desktop DESKTOPOS_TOOLS_EXCLUDE=desktop_screenshot
+
+# 命令行等价写法
+node src/mcp-server/index.js --only=shell,diagnose
+```
+
+分组：
+
+| 分组 | 工具 | 什么时候需要裁 |
+|---|---|---|
+| `shell` | shell_exec / _verified / _cd / _cwd / _env_get / _env_set / _reset | 几乎总是要留 —— 这套最不可替代 |
+| `desktop` | list_windows / perceive / screenshot / cursor / move / click / type / key / scroll / focus_window | 已有别的桌面自动化时可裁 |
+| `elements` | elements / click_element | 需要元素级点击时留 |
+| `cdp` | browser_launch / cdp_*（9 个） | **已有 Playwright 就整组裁掉** |
+| `memory` | memory_* | 不需要桌面状态记忆时裁 |
+| `diagnose` | desktop_diagnose | 纯知识，建议留 |
+
+三条行为保证（`test/toolfilter.test.js` 覆盖）：
+
+1. **不设过滤 = 暴露全部**，OSS 用户的默认体验不受影响；
+2. 裁剪后 `tools/list` 只剩选中的；
+3. **执行期同样拦截** —— 只裁 `tools/list` 是不够的：客户端的工具表可能是缓存的，
+   模型也可能记得旧名字，那时调用会绕过裁剪照常执行，配置看着生效其实没有。
+
+### 配套：重叠审计
+
+裁剪是手工判断，所以给了一个把「重叠」量化成数字的脚本：
+
+```bash
+npm run audit:overlap
+```
+
+它会连上配置里每个 MCP 服务器、拉一遍 `tools/list`，然后按名字与描述的相似度
+输出跨服务器的近重复对。用法是**当成候选清单看，不是判决**：
+
+- 名字撞但语义不同的很常见（`windows-mcp/Click` 点的是操作系统窗口，
+  `playwright/browser_click` 点的是页面 DOM 元素 —— 这两条本来就不该合并）；
+- 中英文描述混在一起时，描述相似度会失灵，只能靠名字相似 + 人工判断；
+- 它只看 MCP 服务器，看不到客户端的原生工具（如内置的 shell / 文件读写），
+  所以真实重叠量会比报告数字更大。
+
+**每装一个新服务器就跑一次**，别让重叠悄悄累积 —— 这是这个脚本存在的唯一理由。
+
+---
+
 ## 自愈：诊断器
 
 之前的自愈只有半截 —— 执行 → 验证 → 重试。但「重试」对大多数失败毫无意义：
@@ -444,8 +509,8 @@ CDP 直连已经拿到了 Playwright 的底层能力（DOM、AX 树、输入注�
 
 ## 测试覆盖
 
-`npm test` = 6 编码守卫 + 13 Shell Worker + **15 韧性/安全** + 20 感知 + 11 执行
-+ 123 诊断 + 38 记忆 + 81 MCP 端到端，共 **307 项**。
+`npm test` = 6 编码守卫 + 13 Shell Worker + 15 韧性/安全 + **13 工具过滤** + 20 感知
++ 11 执行 + 123 诊断 + 38 记忆 + 81 MCP 端到端，共 **320 项**。
 
 其中 CDP 那 16 项是**真端到端**：真的起一个无头 Edge、真的导航、真的注入鼠标事件、
 断言页面 DOM 真的变了。本机没装 Edge/Chrome 时自动 SKIP，不算失败。

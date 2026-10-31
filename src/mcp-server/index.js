@@ -584,6 +584,131 @@ UIA 看不见它们的内部，CDP 能。`,
   },
 ];
 
+// ============================================================
+// 工具过滤（可选）
+//
+// 为什么需要这个东西：
+//   主流 MCP 客户端（DSH / Claude Desktop / Cursor）只支持按**服务器**启停，
+//   不支持按**工具**启停。于是当机器上同时装了多个能力重叠的服务器时
+//   （比如另一个桌面自动化 + 一个浏览器自动化），模型每次调用都得猜该用哪套，
+//   猜错的概率随工具数上升 —— 这是工具装多了之后真实出现的退化。
+//
+//   在客户端修不了，就只能在服务器侧修：给它一个 allowlist，
+//   让部署方只暴露**不重叠**的那部分。
+//
+// 用法（两种都行，exclude 优先级更高）：
+//   DESKTOPOS_TOOLS=shell,diagnose                按分组
+//   DESKTOPOS_TOOLS=shell_exec,desktop_perceive   按工具名
+//   DESKTOPOS_TOOLS_EXCLUDE=cdp,memory            排除分组或工具名
+//
+//   也可以走命令行： --only=shell,diagnose  /  --exclude=cdp
+//
+//   不设置就暴露全部（默认行为，也是 OSS 用户的默认体验）。
+// ============================================================
+
+const TOOL_GROUPS = {
+  // 持久化 shell 会话 —— 这套东西最不可替代的部分
+  shell: [
+    'shell_exec', 'shell_exec_verified', 'shell_cd', 'shell_cwd',
+    'shell_env_get', 'shell_env_set', 'shell_reset',
+  ],
+  // 桌面感知与输入
+  desktop: [
+    'desktop_list_windows', 'desktop_perceive', 'desktop_screenshot',
+    'desktop_cursor', 'desktop_move', 'desktop_click', 'desktop_type',
+    'desktop_key', 'desktop_scroll', 'desktop_focus_window',
+  ],
+  // 元素级（UIA）
+  elements: ['desktop_elements', 'desktop_click_element'],
+  // 浏览器调试协议 —— 如果已有 Playwright 这类更全的方案，这组可以关掉
+  cdp: [
+    'desktop_browser_launch', 'desktop_cdp_targets', 'desktop_cdp_open',
+    'desktop_cdp_elements', 'desktop_cdp_click', 'desktop_cdp_type',
+    'desktop_cdp_eval', 'desktop_cdp_screenshot', 'desktop_cdp_close',
+  ],
+  // 桌面状态记忆
+  memory: ['memory_recall', 'memory_timeline', 'memory_stats', 'memory_clear'],
+  // 错误诊断 —— 纯知识，几乎没有替代品
+  diagnose: ['desktop_diagnose'],
+};
+
+const GROUP_OF = (() => {
+  const map = new Map();
+  for (const [group, names] of Object.entries(TOOL_GROUPS)) {
+    for (const n of names) map.set(n, group);
+  }
+  return map;
+})();
+
+/** 把 "shell,diagnose,shell_cd" 展开成具体工具名集合（支持分组名与工具名混写） */
+function expandSelectors(spec) {
+  const out = new Set();
+  for (const raw of String(spec).split(',')) {
+    const sel = raw.trim();
+    if (!sel) continue;
+    if (TOOL_GROUPS[sel]) {
+      for (const n of TOOL_GROUPS[sel]) out.add(n);
+    } else {
+      out.add(sel); // 认不出就当工具名，后面按实际存在的工具过滤
+    }
+  }
+  return out;
+}
+
+function readFilterSpec() {
+  const argv = process.argv.slice(2);
+  const fromArgv = (flag) => {
+    const hit = argv.find((a) => a.startsWith(flag + '='));
+    return hit ? hit.slice(flag.length + 1) : null;
+  };
+  return {
+    only: fromArgv('--only') || process.env.DESKTOPOS_TOOLS || null,
+    exclude: fromArgv('--exclude') || process.env.DESKTOPOS_TOOLS_EXCLUDE || null,
+  };
+}
+
+/**
+ * 按 allowlist / denylist 过滤工具表。
+ * 返回 { tools, allNames, removed }
+ */
+function filterTools(tools) {
+  const { only, exclude } = readFilterSpec();
+  const allNames = tools.map((t) => t.name);
+  const known = new Set(allNames);
+
+  let keep = new Set(allNames);
+
+  if (only) {
+    const sel = expandSelectors(only);
+    keep = new Set([...sel].filter((n) => known.has(n)));
+    const unknown = [...sel].filter((n) => !known.has(n));
+    if (unknown.length) {
+      console.error('[DesktopOS MCP] --only 里这些名字/分组不存在，已忽略: ' + unknown.join(', '));
+    }
+  }
+
+  if (exclude) {
+    for (const n of expandSelectors(exclude)) keep.delete(n);
+  }
+
+  const kept = tools.filter((t) => keep.has(t.name));
+  const removed = allNames.filter((n) => !keep.has(n));
+  return { tools: kept, allNames, removed };
+}
+
+const FILTERED = filterTools(TOOLS);
+const ACTIVE_TOOLS = FILTERED.tools;
+const ACTIVE_NAMES = new Set(ACTIVE_TOOLS.map((t) => t.name));
+
+if (FILTERED.removed.length) {
+  console.error(
+    `[DesktopOS MCP] 工具已在启动时裁剪：暴露 ${ACTIVE_TOOLS.length}/${TOOLS.length}，` +
+    `未启用 ${FILTERED.removed.length} 个（${FILTERED.removed.slice(0, 8).join(', ')}` +
+    `${FILTERED.removed.length > 8 ? ', ...' : ''}）。` +
+    `恢复全部请去掉 DESKTOPOS_TOOLS / --only。`
+  );
+}
+
 // 版本号从 package.json 读，避免握手时对外报一个和包版本不一致的号
 const PKG_VERSION = (() => {
   try { return require('../../package.json').version; } catch { return '0.0.0'; }
@@ -602,9 +727,9 @@ const server = new Server(
   }
 );
 
-// 列出工具
+// 列出工具（已按 allowlist 裁剪）
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: TOOLS,
+  tools: ACTIVE_TOOLS,
 }));
 
 // 调用工具
@@ -622,6 +747,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   };
 
   try {
+    // 执行期也要挡：只裁 tools/list 是不够的。
+    // 客户端的工具表可能是缓存/陈旧的，模型也可能记得旧名字 ——
+    // 那时调用会绕过裁剪照常执行，配置看起来生效了其实没有。
+    if (!ACTIVE_NAMES.has(name)) {
+      const exists = TOOLS.some((t) => t.name === name);
+      throw new Error(
+        exists
+          ? `工具 ${name} 已在启动时被裁剪（DESKTOPOS_TOOLS / --only）。` +
+            `当前可用: ${[...ACTIVE_NAMES].join(', ')}`
+          : `Unknown tool: ${name}`
+      );
+    }
+
     switch (name) {
       case 'shell_exec': {
         const w = await ensureWorker();
@@ -1116,6 +1254,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       default:
+        // 正常走不到这里：上面已有 ACTIVE_NAMES 守卫
         throw new Error(`Unknown tool: ${name}`);
     }
   } catch (err) {

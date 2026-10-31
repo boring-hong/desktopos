@@ -1,0 +1,21 @@
+# 依赖（用 package-lock.json 还原：npm ci）
+node_modules/
+
+# 本项目运行时产物
+.desktopos/
+cdp-profile/
+cdp-*/
+*.log
+npm-debug.log*
+
+# 测试/调试产物
+test/_amsi/
+*.png
+!docs/**/*.png
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

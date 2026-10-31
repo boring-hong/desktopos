@@ -1,0 +1,57 @@
+# CI 只跑「不需要真实桌面」的那部分测试。
+#
+# 为什么不全跑：perception / actor / mcp-e2e 会真的截屏、读鼠标坐标、
+# 起无头浏览器。GitHub 的 Windows runner 不是交互式会话，屏幕抓取可能返回空白，
+# 那几条会假失败 —— 与其放一个红灯让人学会忽略 CI，不如明确划清边界。
+#
+# 这里覆盖的恰好是纯逻辑与传输层：编码守卫、持久化会话、鉴权与卡死恢复、
+# 诊断规则、记忆层。这些在任何 Windows 机器上都该是绿的。
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 编码守卫（.ps1 必须纯 ASCII）
+        run: node test/ascii-guard.test.js
+
+      - name: 持久化 Shell 会话
+        run: node test/shell-worker.test.js
+
+      - name: 鉴权 / 卡死恢复 / 并发单例
+        run: node test/resilience.test.js
+
+      - name: 诊断器
+        run: node test/diagnoser.test.js
+
+      - name: 记忆层
+        run: node test/memory.test.js
+
+  # 真实桌面相关的测试请在本地跑：npm test
+  # （perception 截屏、actor 光标、mcp-e2e 起浏览器）
+  full-suite-local-only:
+    if: false
+    runs-on: windows-latest
+    steps:
+      - run: echo "完整套件需要交互式桌面会话，只在本地执行"

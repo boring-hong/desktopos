@@ -1,0 +1,35 @@
+{
+  "name": "desktopos",
+  "version": "0.2.1",
+  "description": "DesktopOS — AI-to-Windows Bridge: persistent PowerShell session, dual-channel perception, element-level UI automation, CDP browser channel, self-healing",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "os": ["win32"],
+  "keywords": ["mcp", "windows", "powershell", "ui-automation", "cdp", "desktop", "agent"],
+  "files": [
+    "src",
+    "docs",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node src/mcp-server/index.js",
+    "dev": "node --watch src/mcp-server/index.js",
+    "test": "node test/ascii-guard.test.js && node test/shell-worker.test.js && node test/resilience.test.js && node test/perception.test.js && node test/actor.test.js && node test/diagnoser.test.js && node test/memory.test.js && node test/mcp-e2e.test.js",
+    "test:unit": "node test/ascii-guard.test.js && node test/shell-worker.test.js && node test/resilience.test.js",
+    "test:resilience": "node test/resilience.test.js",
+    "test:perception": "node test/perception.test.js",
+    "test:actor": "node test/actor.test.js",
+    "test:diagnoser": "node test/diagnoser.test.js",
+    "test:memory": "node test/memory.test.js",
+    "test:e2e": "node test/mcp-e2e.test.js",
+    "dbg:cdp": "node test/_dbg-cdp.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "~1.32.2"
+  },
+  "_comment": "依赖策略：CDP 用 Node 22 内置的全局 WebSocket，所以不需要 ws；但 MCP SDK 自身会拖进 express/hono/cors 等约 90 个包，这是它的现状，不是我们的选择。因此把 SDK 锁在 ~1.32.2（只允许补丁位），避免某次 npm install 悄悄换到行为不同的 1.x 小版本。"
+}

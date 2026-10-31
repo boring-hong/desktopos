@@ -1,0 +1,13 @@
+# 统一换行符，避免 Windows 上 git 反复报 "LF will be replaced by CRLF"
+* text=auto eol=lf
+
+# PowerShell 脚本与批处理保持 CRLF（Windows 原生习惯）
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 二进制
+*.png binary
+*.jpg binary
+*.ico binary

@@ -48,12 +48,17 @@ npm start         # 以 MCP Server 运行（stdio）
 }
 ```
 
-- DSH：`C:\Users\<你>\.qwenworkcn\mcp.json`
+- DSH（新版）：`C:\Users\<你>\.dsh\dsh-mcp-manager.json`
+- DSH（旧版 / qwenworkcn）：`C:\Users\<你>\.qwenworkcn\mcp.json`
 - Claude Desktop：`%APPDATA%\Claude\claude_desktop_config.json`
+- Cursor：`%USERPROFILE%\.cursor\mcp.json`
 
-路径用正斜杠可以避开 JSON 的反斜杠转义。重启客户端后生效。
+哪个文件已存在就改哪个。路径用正斜杠可以避开 JSON 的反斜杠转义。重启客户端后生效。
 
-> 第一次看这个项目？先读 [`docs/REVIEW.md`](docs/REVIEW.md) —— 评审导览，
+> **第一次上手**：读 [`docs/QUICKSTART.md`](docs/QUICKSTART.md) —— 五分钟一页纸，
+> 含可复制的客户端配置、一分钟自检清单、典型用法和已知限制。
+>
+> **想判断它靠不靠谱**：读 [`docs/REVIEW.md`](docs/REVIEW.md) —— 评审导览，
 > 含 5 分钟验证路径、目录导航、已知边界和安全提示。
 
 ---

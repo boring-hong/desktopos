@@ -1,6 +1,6 @@
 {
   "name": "desktopos",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "DesktopOS — AI-to-Windows Bridge: persistent PowerShell session, dual-channel perception, element-level UI automation, CDP browser channel, self-healing",
   "license": "MIT",
   "engines": {

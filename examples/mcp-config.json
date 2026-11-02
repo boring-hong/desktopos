@@ -1,17 +1,50 @@
 {
   "_comment": [
-    "把这段合并进你的 MCP 客户端配置里。",
-    "路径请替换成你本机的实际路径；用正斜杠可避免 JSON 反斜杠转义的麻烦。",
-    "DSH:  C:\\Users\\<你>\\.qwenworkcn\\mcp.json",
-    "Claude Desktop: %APPDATA%\\Claude\\claude_desktop_config.json"
+    "DesktopOS 的 MCP 客户端配置模板 —— 可直接复制，只改 <项目路径> 一处。",
+    "",
+    "步骤：",
+    "  1) git clone https://github.com/boring-hong/desktopos.git && cd desktopos && npm ci",
+    "  2) 把下面 mcpServers 里的 desktopos 条目合并进你的 MCP 配置文件",
+    "  3) 重启客户端",
+    "",
+    "配置文件位置（哪个已存在就改哪个）：",
+    "  DSH 新版        C:\\Users\\<你>\\.dsh\\dsh-mcp-manager.json",
+    "  DSH 旧版        C:\\Users\\<你>\\.qwenworkcn\\mcp.json",
+    "  Claude Desktop  %APPDATA%\\Claude\\claude_desktop_config.json",
+    "  Cursor          %USERPROFILE%\\.cursor\\mcp.json",
+    "",
+    "要求：Windows 10/11 + Node.js >= 22（node -v 确认）。",
+    "路径用正斜杠可以避开 JSON 反斜杠转义。",
+    "",
+    "可选：机器上已有别的桌面自动化/浏览器自动化时，用 env.DESKTOPOS_TOOLS 裁掉重叠部分，",
+    "别让模型每次猜该用哪套。分组：shell / desktop / elements / cdp / memory / diagnose。",
+    "",
+    "装好后一分钟验证：",
+    "  shell_cd   path: <任意含中文的目录>      -> 返回同一目录，无乱码",
+    "  shell_exec command: Write-Output (Get-Location).Path   -> 与上一步目录一致（说明会话持久）",
+    "  desktop_diagnose error: New-Item : 未能找到路径\"C:\\a\\b\"的一部分。  -> 回父目录不存在 + 修补命令"
   ],
+
   "mcpServers": {
     "desktopos": {
       "type": "stdio",
       "command": "node",
       "args": ["<项目路径>/src/mcp-server/index.js"],
       "cwd": "<项目路径>",
-      "description": "DesktopOS - 持久化 PowerShell 会话 + 双通道桌面感知 + CDP 浏览器通道"
+      "description": "DesktopOS — 持久化 PowerShell 会话 + 双通道桌面感知 + 元素级 UIA + 失败自愈",
+      "env": {}
+    },
+
+    "_desktopos_已裁剪示例": {
+      "_说明": "复制这个版本替换上面的 desktopos 条目即可。适合『本机已有别的桌面/浏览器自动化』的情况：只留不可替代的持久化 shell 与诊断器。",
+      "type": "stdio",
+      "command": "node",
+      "args": ["<项目路径>/src/mcp-server/index.js"],
+      "cwd": "<项目路径>",
+      "env": {
+        "DESKTOPOS_TOOLS": "shell,diagnose,elements,desktop_perceive,desktop_click"
+      },
+      "description": "DesktopOS（裁剪版，12 个工具）"
     }
   }
 }
